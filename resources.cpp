@@ -15,6 +15,10 @@
 
 #define APP_RES_FILE "/resources.neu"
 
+#ifdef NEU_STATIC
+AUTOV(bin_resources_neu)
+#endif
+
 using namespace std;
 using json = nlohmann::json;
 
@@ -54,6 +58,13 @@ fs::FileReaderResult __getFileFromBundle(const string &filename) {
     fs::FileReaderResult fileReaderResult;
     pair<int, string> p = __seekFilePos(filename, fileTree, "");
     if(p.first != -1) {
+#ifdef NEU_STATIC
+	unsigned int uSize = p.first;
+	unsigned int uOffset = stoi(p.second);
+
+	string fileContent(&PREV_START(bin_resources_neu) + asarHeaderSize + uOffset, uSize);
+	fileReaderResult.data = fileContent;
+#else
         ifstream asarArchive = __openResourceFile();
         if (!asarArchive) {
             fileReaderResult.hasError = true;
@@ -68,6 +79,7 @@ fs::FileReaderResult __getFileFromBundle(const string &filename) {
         string fileContent(fileBuf.begin(), fileBuf.end());
         fileReaderResult.data = fileContent;
         asarArchive.close();
+#endif
    }
    else {
         fileReaderResult.hasError = true;
@@ -76,6 +88,12 @@ fs::FileReaderResult __getFileFromBundle(const string &filename) {
 }
 
 bool __makeFileTree() {
+#ifdef NEU_STATIC
+	json files;
+	unsigned int uSize = *(unsigned int *)(&PREV_START(bin_resources_neu)+4) - 8;
+	asarHeaderSize = uSize + 16;
+	string headerContent(&PREV_START(bin_resources_neu) + 16, uSize);
+#else
     ifstream asarArchive = __openResourceFile();
     if (!asarArchive) {
         return false;
@@ -94,6 +112,7 @@ bool __makeFileTree() {
     json files;
     string headerContent(headerBuf.begin(), headerBuf.end());
     asarArchive.close();
+#endif
     try {
         files = json::parse(headerContent);
     }
